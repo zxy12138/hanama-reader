@@ -1,0 +1,66 @@
+const {app,net,BrowserWindow}=require('electron'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const dir=path.resolve(__dirname,'../.reader-test/workspace-layout-'+Date.now());fs.mkdirSync(dir,{recursive:true});app.setPath('userData',dir);
+fs.writeFileSync(path.join(dir,'story.json'),JSON.stringify({story:{id:'book',title:'布局回归测试',messages:[{id:'m',text:'窗外下着雨。\n'.repeat(200)}],images:[]},rules:[]}));
+net.fetch=async()=>{throw Error('No network expected');};const sleep=ms=>new Promise(r=>setTimeout(r,ms));let started=false;
+app.on('browser-window-created',(_,w)=>{w.webContents.on('console-message',e=>{if(e.level==='error')console.error('renderer',e.message,e.sourceId,e.lineNumber);});w.on('closed',()=>console.log('closed',w.id));w.hide();w.webContents.setBackgroundThrottling(false);w.webContents.once('did-finish-load',async()=>{if(started)return;started=true;
+ const js=s=>w.webContents.executeJavaScript(s),until=async f=>{for(let i=0;i<250;i++){if(await f())return;await sleep(30);}throw Error('UI timeout');};
+ try{
+  await until(()=>js('!!window.appShell?.workspace && document.getElementById("startupScreen").hidden'));
+  assert.equal(await js('document.querySelector("[data-workspace-tab]").draggable'),false);
+  await js('document.querySelector(".workspace-edit").click();document.getElementById("workspacePreset").value="draw";document.getElementById("workspacePreset").dispatchEvent(new Event("change"))');
+  await js('window.originalPrompt=document.getElementById("promptText");originalPrompt.value="preserved prompt";document.querySelector(".reader").scrollTop=160;window.savedScroll=document.querySelector(".reader").scrollTop');
+  await js(`(()=>{const tab=document.querySelector('[data-workspace-tab="prompts"]'),target=document.querySelector('[data-workspace-tab="gallery"]').closest('[data-layout-group]'),dt=new DataTransfer();tab.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer:dt}));target.querySelector('[data-workspace-edge="center"]').dispatchEvent(new DragEvent('drop',{bubbles:true,dataTransfer:dt}));})()`);
+  assert.equal(await js('document.getElementById("promptText")===originalPrompt'),true);
+  assert.equal(await js('originalPrompt.value'),'preserved prompt');
+  assert.equal(await js('document.querySelector(".reader").scrollTop===savedScroll'),true);
+  assert.equal(await js('document.querySelector("[data-workspace-tab=gallery]").closest("[data-layout-group]").contains(document.querySelector("[data-workspace-tab=prompts]"))'),true);
+  await js('window.appShell.workspace.mode("gallery","float")');assert.equal(await js('document.querySelectorAll(".workspace-floating").length'),1);
+  await js('window.appShell.workspace.mode("gallery","dock")');assert.equal(await js('document.querySelectorAll(".workspace-floating").length'),0);
+  await js(`(()=>{const tab=document.querySelector('[data-workspace-tab="gallery"]'),dt=new DataTransfer();tab.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer:dt}));document.querySelector('[data-outer-edge="left"]').dispatchEvent(new DragEvent('drop',{bubbles:true,dataTransfer:dt}));})()`);
+  assert.equal(await js('appShell.workspace.capture().root.a.tabs[0]'),'gallery');
+  const rect=await js('(()=>{const r=document.querySelector(".workspace-tree > .workspace-split > .workspace-divider").getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()');
+  const beforeRatio=await js('appShell.workspace.capture().root.ratio');
+  w.webContents.sendInputEvent({type:'mouseDown',...rect,button:'left',clickCount:1});
+  w.webContents.sendInputEvent({type:'mouseMove',x:rect.x+90,y:rect.y,button:'left'});
+  w.webContents.sendInputEvent({type:'mouseUp',x:rect.x+90,y:rect.y,button:'left',clickCount:1});await sleep(80);
+  assert.ok(await js('appShell.workspace.capture().root.ratio')>beforeRatio+.03,'drag right increases left module width');
+  await js('document.querySelector("[data-workspace-tab=gallery]").closest("[data-layout-group]").querySelector("[data-dock-edge=right]").click()');
+  assert.equal(await js('appShell.workspace.capture().root.b.tabs[0]'),'gallery');
+  await js('document.querySelector("[data-workspace-tab=gallery]").closest("[data-layout-group]").querySelector("[data-dock-edge=left]").click()');
+  assert.equal(await js('appShell.workspace.capture().root.a.tabs[0]'),'gallery');
+  await js('appShell.workspace.mode("gallery","float")');const floating=await js('appShell.workspace.capture().floats[0]');
+  const edge=await js('(()=>{const r=document.querySelector(".workspace-float-edge.left").getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()');
+  w.webContents.sendInputEvent({type:'mouseDown',...edge,button:'left',clickCount:1});w.webContents.sendInputEvent({type:'mouseMove',x:edge.x-25,y:edge.y,button:'left'});w.webContents.sendInputEvent({type:'mouseUp',x:edge.x-25,y:edge.y,button:'left',clickCount:1});await sleep(80);
+  const resized=await js('appShell.workspace.capture().floats[0]');assert.ok(resized.w>floating.w);assert.equal(resized.x+resized.w,floating.x+floating.w);
+  await js('appShell.workspace.dockEdge("gallery","left")');
+  await js('document.querySelector(".workspace-save").click()');assert.equal(await js('appShell.workspace.dockEdge("gallery","right")'),false);const layout=await js('JSON.stringify(window.appShell.workspace.capture())');
+  await js('document.querySelector(".workspace-edit").click();document.getElementById("workspacePreset").value="focus";document.getElementById("workspacePreset").dispatchEvent(new Event("change"));document.querySelector(".workspace-cancel").click()');
+  assert.equal(await js('JSON.stringify(window.appShell.workspace.capture())'),layout);
+  await js('window.appShell.show("library");window.appShell.show("studio");window.appShell.show("tasks");window.appShell.show("read")');
+  assert.equal(await js('document.getElementById("promptText")===originalPrompt'),true);
+  const snapshot=await js('JSON.stringify(window.appShell.workspace.capture())');
+  await new Promise(r=>{w.webContents.once('did-finish-load',r);w.webContents.reload();});await w.webContents.capturePage({x:0,y:0,width:1,height:1},{stayHidden:true,stayAwake:true});
+  await until(()=>js('!!window.appShell?.workspace && document.getElementById("startupScreen").hidden'));
+  assert.equal(await js('JSON.stringify(window.appShell.workspace.capture())'),snapshot);assert.equal(await js('document.querySelector("[data-workspace-tab]").draggable'),false);
+  await js('hanama.invoke("panel.open",{id:"gallery"})');await until(()=>BrowserWindow.getAllWindows().length===2);
+  const child=BrowserWindow.getAllWindows().find(x=>x!==w);await until(()=>child.webContents.executeJavaScript('!!document.querySelector(".native-pin")'));
+  assert.equal(await child.webContents.executeJavaScript('document.querySelectorAll("#galleryGrid").length'),1);
+  child.close();await until(()=>BrowserWindow.getAllWindows().length===1);await sleep(100);
+  assert.equal(await js('document.querySelectorAll("#galleryGrid").length'),1);
+  for(const panelId of ['reader','rules','export']){console.log('testing native',panelId);
+   await js('hanama.invoke("panel.open",{id:'+JSON.stringify(panelId)+'})');await until(()=>BrowserWindow.getAllWindows().length===2);
+   const extra=BrowserWindow.getAllWindows().find(x=>x!==w);await until(()=>extra.webContents.executeJavaScript('!!document.querySelector(".native-pin") && document.getElementById("startupScreen").hidden'));
+   assert.equal(await extra.webContents.executeJavaScript('document.querySelector(".native-pane").contains(document.getElementById('+JSON.stringify(panelId)+'))'),true);
+   if(panelId==='reader'){
+    assert.ok(await extra.webContents.executeJavaScript('document.querySelectorAll(".text-segment").length')>0);
+    await extra.webContents.executeJavaScript('document.getElementById("newRule").click();window.nativeRuleInput=document.querySelector(".rule-start");nativeRuleInput.value="选中的起点";panel("rules")');
+    assert.equal(await extra.webContents.executeJavaScript('document.getElementById("nativeReaderRules").open && document.getElementById("nativeReaderRules").contains(nativeRuleInput)'),true);
+    await extra.webContents.executeJavaScript('document.getElementById("nativeReaderRules").close();panel("rules")');
+    assert.equal(await extra.webContents.executeJavaScript('document.querySelector(".rule-start")===nativeRuleInput && nativeRuleInput.value==="选中的起点"'),true);
+    await extra.webContents.executeJavaScript('document.getElementById("nativeReaderRules").close()');
+   }
+   extra.close();await until(()=>BrowserWindow.getAllWindows().length===1);
+  }
+  console.log('PASS: production docking/tab merge, live DOM and scroll preservation, floating/redock, saved lock/reload, cancel, route changes, native gallery close restores main panel without duplicate controls.');app.exit(0);
+ }catch(e){console.error(e);console.error('profile:',dir);app.exit(1);}
+});});setTimeout(()=>{console.error('timeout');app.exit(1);},35000).unref();require('../desktop/main.cjs');

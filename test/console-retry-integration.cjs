@@ -1,0 +1,16 @@
+const {app,net}=require('electron'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),jobs=require('../desktop/book-jobs.cjs');
+const dir=path.resolve(__dirname,'../.reader-test/console-retry'),profile=path.join(dir,'profile');fs.mkdirSync(profile,{recursive:true});app.setPath('userData',profile);
+const story={id:'retry-book',title:'重试隔离测试',messages:[{id:'m',name:'正文',text:'虚构测试正文。'}],images:[]},job=jobs.create(story,[],'clean');job.units.push(structuredClone(job.units[0]));job.cursor=1;job.status='failed';job.error='旧任务断线';story.bookJobs={clean:job};fs.writeFileSync(path.join(profile,'story.json'),JSON.stringify({story,rules:[]}));
+let requests=0;const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));net.fetch=async()=>{requests++;if(requests===1)return new Response('',{status:500});await sleep(100);return new Response(JSON.stringify({choices:[{message:{content:'{"remove":[]}'},finish_reason:'stop'}]}),{headers:{'content-type':'application/json'}});};
+app.on('browser-window-created',(_e,win)=>{win.hide();win.webContents.setBackgroundThrottling(false);win.webContents.once('did-finish-load',async()=>{
+ const js=s=>win.webContents.executeJavaScript(s),invoke=(action,args={})=>js(`window.hanama.invoke(${JSON.stringify(action)},${JSON.stringify(args)})`),until=async f=>{for(let i=0;i<150;i++){if(await f())return;await sleep(25);}throw Error('timeout');};
+ try{await until(()=>js('!!document.querySelector(".console-retry")'));await invoke('settings.save',{baseUrl:'https://test.invalid/v1',model:'test-model',apiKey:'fake',globalPrompt:''});
+ assert.ok((await invoke('console.list')).some(e=>e.retry&&e.title.includes('上次任务')));
+ await js('document.getElementById("bookJobsNav").click();document.querySelector("[data-workflow=clean]").click()');assert.equal(await js('document.getElementById("runCleanJob").getClientRects().length'),0);await js('document.getElementById("viewCleanTask").click()');assert.equal(await js('appShell.route'),'tasks');assert.equal(await js('document.getElementById("runCleanJob").textContent'),'重试并继续');await js('document.getElementById("runCleanJob").click()');await until(async()=>requests===1&&!(await invoke('state')).busy);await until(()=>js('!!document.querySelector(".console-retry:not(:disabled)")'));
+ const failures=(await invoke('console.list')).filter(e=>e.retry);assert.ok(failures.length>=3);assert.ok(failures.every(e=>e.retry.cursor===1));
+ await js('(()=>{const b=document.getElementById("runCleanJob");b.click();b.click();})()');await until(async()=>{const s=await invoke('state');return !s.busy&&s.story.bookJobs.clean.status==='completed';});
+ assert.equal(requests,2);const s=await invoke('state');assert.equal(s.story.bookJobs.clean.cursor,2);assert.equal(await js('document.querySelectorAll(".console-retry:not(:disabled)").length'),0);
+ await assert.rejects(invoke('console.retry',{id:failures.at(-1).id}),/进度已经变化/);assert.equal(requests,2);
+ console.log('PASS: task-page retry visible, studio recovery hidden, resume saved cursor, double-click guard, stale log guard');await sleep(150);app.exit(0);
+ }catch(e){console.error(e);app.exit(1);}
+});});setTimeout(()=>app.exit(1),25000).unref();require('../desktop/main.cjs');

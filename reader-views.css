@@ -1,0 +1,8 @@
+/* View switching never changes the underlying novel, rules or image anchors. */
+.view-switch{flex-wrap:wrap}
+.view-switch button{white-space:nowrap}
+.view-switch button[aria-pressed=true]{background:white;color:var(--pink);box-shadow:0 1px 4px #5b3d4510}
+#reader[data-reading-mode=clean] .excluded-text{display:none}
+#searchExcluded:disabled{cursor:not-allowed}
+.search-bar label:has(#searchExcluded:disabled){opacity:.55}
+#reader[data-reading-mode=clean] .empty-reader{line-height:2;color:var(--muted)}

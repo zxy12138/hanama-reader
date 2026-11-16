@@ -1,0 +1,5 @@
+const $=s=>document.querySelector(s);let toastTimer;
+function toast(t){$('#toast').textContent=t;$('#toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),3400)}
+function panel(id){document.querySelectorAll('.tab').forEach(b=>{b.classList.toggle('active',b.dataset.panel===id);b.setAttribute('aria-selected',b.dataset.panel===id)});document.querySelectorAll('.panel').forEach(p=>p.hidden=p.id!==id);if(innerWidth<930)$('#'+id).scrollIntoView({behavior:'smooth',block:'center'})}
+function view(library){$('#readingView').hidden=library;$('#libraryView').hidden=!library;$('#libraryNav').classList.toggle('active',library);$('#readNav').classList.toggle('active',!library)}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>panel(b.dataset.panel));$('#exportTop').onclick=()=>panel('export');$('#focusBtn').onclick=()=>{document.body.classList.toggle('focus-mode');$('#focusBtn').textContent=document.body.classList.contains('focus-mode')?'⊞':'⛶'};$('#closeExport').onclick=()=>$('#exportDialog').close();$('#closeImport').onclick=()=>$('#importDialog').close();

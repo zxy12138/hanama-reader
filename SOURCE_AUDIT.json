@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "files": 153,
+  "findings": [],
+  "licensePresent": true,
+  "screenshots": [
+    "docs/images/01-library.png",
+    "docs/images/03-reader.png",
+    "docs/images/05-studio.png",
+    "docs/images/06-tasks.png"
+  ],
+  "scope": "Allowlisted source and synthetic tutorial screenshots only. No original Git history or user data.",
+  "assetProvenanceReviewRequired": true,
+  "published": false
+}

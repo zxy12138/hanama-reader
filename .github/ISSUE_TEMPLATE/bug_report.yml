@@ -1,0 +1,31 @@
+name: 问题反馈
+description: 使用脱敏示例描述可复现的问题
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "请勿上传密钥、配置、数据库、整本小说或私人路径。先查看 README 和教程。"
+  - type: input
+    id: version
+    attributes:
+      label: 软件与系统版本
+      placeholder: "例如：0.2.0 / Windows 11"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 重现步骤、预期与实际结果
+      description: 说明是否有后台任务，优先使用虚构短文。
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 模型或绘图环境（如相关）
+      description: 仅填写服务/引擎和模型名称，不要填写 API Key 或私有地址。
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 脱敏错误与截图
+      description: 删除账号、路径、正文和凭据后再上传。

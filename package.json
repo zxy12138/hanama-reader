@@ -1,0 +1,33 @@
+{
+  "name": "hanama-reader",
+  "version": "0.2.0",
+  "private": true,
+  "description": "花间序 · 酒馆对话桌面阅读器",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "node scripts/shared-electron.cjs .",
+    "runtime:check": "node scripts/shared-electron.cjs --check",
+    "test": "node --test test/*.test.cjs && npm run test:book-draft && npm run test:task-controls && npm run test:concurrent-books && npm run test:live-images && npm run test:import-encoding && npm run test:selection-repeats && npm run test:redesign && npm run test:retry && npm run test:folder",
+    "postinstall": "node scripts/shared-electron.cjs --attach",
+    "test:book-draft": "node scripts/shared-electron.cjs test/book-draft-events-integration.cjs --disable-renderer-accessibility",
+    "test:task-controls": "node scripts/shared-electron.cjs test/book-task-controls-integration.cjs --disable-renderer-accessibility && node scripts/shared-electron.cjs test/book-pause-boundaries-integration.cjs --disable-renderer-accessibility && node scripts/shared-electron.cjs test/character-controls-integration.cjs --disable-renderer-accessibility",
+    "test:concurrent-books": "node scripts/shared-electron.cjs test/concurrent-books-integration.cjs --disable-renderer-accessibility",
+    "test:live-images": "node scripts/shared-electron.cjs test/live-images-integration.cjs --disable-renderer-accessibility",
+    "test:import-encoding": "node scripts/shared-electron.cjs test/import-encoding-integration.cjs --disable-renderer-accessibility",
+    "test:selection-repeats": "node scripts/shared-electron.cjs test/selection-repeats-integration.cjs --disable-renderer-accessibility",
+    "test:reader-views": "node scripts/shared-electron.cjs test/reader-views-integration.cjs --disable-renderer-accessibility --disable-gpu && node scripts/shared-electron.cjs test/reader-workspace-position-integration.cjs --disable-renderer-accessibility --disable-gpu",
+    "test:workspace": "node scripts/shared-electron.cjs test/workspace-layout-integration.cjs --disable-renderer-accessibility --disable-gpu",
+    "test:covers": "node scripts/shared-electron.cjs test/book-covers-integration.cjs --disable-renderer-accessibility --disable-gpu",
+    "test:shell": "node scripts/shared-electron.cjs test/app-shell-integration.cjs --disable-renderer-accessibility --disable-gpu",
+    "test:redesign": "npm run test:reader-views && npm run test:workspace && npm run test:covers && npm run test:shell && npm run test:task-drafts",
+    "test:task-drafts": "node scripts/shared-electron.cjs test/book-job-draft-books-integration.cjs --disable-renderer-accessibility --disable-gpu",
+    "release:prepare": "node scripts/prepare-source.cjs",
+    "release:verify": "node scripts/verify-source.cjs",
+    "test:retry": "node scripts/shared-electron.cjs test/console-retry-integration.cjs --disable-renderer-accessibility --disable-gpu",
+    "test:folder": "node scripts/shared-electron.cjs test/folder-authorization-integration.cjs --disable-renderer-accessibility --disable-gpu && node scripts/shared-electron.cjs test/folder-authorization-integration.cjs --restore --disable-renderer-accessibility --disable-gpu"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "license": "MIT"
+}
